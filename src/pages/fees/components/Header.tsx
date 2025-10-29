@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { FiUserPlus } from "react-icons/fi";
-import logo from "../../../assets/logos/logo Blue.png";
-import payLogo from "../../../assets/logos/Icon Blue.png";
+// import logo from "../../../assets/logos/logo Blue.png";
+// import payLogo from "../../../assets/logos/Icon Blue.png";
 
 interface HeaderProps {
   userType: "individual" | "business";
@@ -25,7 +25,11 @@ export default function Header({ userType, onUserTypeChange }: HeaderProps) {
               >
                 VitalSwap
               </div> */}
-              <img style={{ width: "30%" }} src={logo} alt="VitalSwap Logo" />
+              <img
+                style={{ width: "30%" }}
+                src="/logo Blue.png"
+                alt="VitalSwap Logo"
+              />
             </div>
 
             {/* Desktop Navigation */}
@@ -142,7 +146,7 @@ export default function Header({ userType, onUserTypeChange }: HeaderProps) {
               style={{
                 width: "7%",
               }}
-              src={payLogo}
+              src="/Icon Blue.png"
               alt="VitalSwap Logo"
             />
           </div>
