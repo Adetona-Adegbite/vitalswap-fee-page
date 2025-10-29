@@ -27,7 +27,7 @@ export default function Header({ userType, onUserTypeChange }: HeaderProps) {
               </div> */}
               <img
                 style={{ width: "30%" }}
-                src="/logo Blue.png"
+                src="/logo blue.png"
                 alt="VitalSwap Logo"
               />
             </div>
