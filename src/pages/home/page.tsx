@@ -25,7 +25,7 @@ const Home = () => {
             style={{
               width: "80px",
             }}
-            src={logo}
+            src="/Icon Blue.png"
             alt="VitalSwap Logo"
           />
         </div>
