@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { FiUserPlus } from "react-icons/fi";
+import logo from "../../../assets/logos/logo Blue.png";
+import payLogo from "../../../assets/logos/Icon Blue.png";
 
 interface HeaderProps {
   userType: "individual" | "business";
@@ -17,12 +19,13 @@ export default function Header({ userType, onUserTypeChange }: HeaderProps) {
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <div className="flex items-center">
-              <div
+              {/* <div
                 className="text-2xl font-bold text-blue-600"
-                style={{ fontFamily: "Pacifico, serif" }}
+                style={{ fontFamily: "Poppins, sans-serif" }}
               >
                 VitalSwap
-              </div>
+              </div> */}
+              <img style={{ width: "30%" }} src={logo} alt="VitalSwap Logo" />
             </div>
 
             {/* Desktop Navigation */}
@@ -117,24 +120,44 @@ export default function Header({ userType, onUserTypeChange }: HeaderProps) {
       {/* Header Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
-          <h1
-            className="text-4xl md:text-5xl font-bold text-gray-900 mb-4"
-            style={{ fontFamily: "Gilroy, sans-serif" }}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: "12px",
+              marginBottom: "24px",
+            }}
           >
-            VitalSwap Fees & Exchange Rates
-          </h1>
+            <span
+              className="text-6xl font-bold text-gray-900 mb-6"
+              style={{
+                fontFamily: "Poppins, sans-serif",
+                color: "#043061",
+              }}
+            >
+              pay
+            </span>
+            <img
+              style={{
+                width: "7%",
+              }}
+              src={payLogo}
+              alt="VitalSwap Logo"
+            />
+          </div>
           <p
-            className="text-xl text-blue-600 font-semibold mb-4"
-            style={{ fontFamily: "Poppins, sans-serif" }}
+            className="text-4xl font-bold text-gray-900 mb-6"
+            style={{ fontFamily: "Poppins, sans-serif", color: "#2563EB" }}
           >
-            Transparent. Fair. Global.
+            Transparent Fees, No Surprises
           </p>
           <p
             className="text-lg text-gray-600 max-w-3xl mx-auto mb-8"
             style={{ fontFamily: "Poppins, sans-serif" }}
           >
-            Easily explore our transaction fees and FX rates — built for clarity
-            and trust.
+            At VitalSwap, we believe in simple, honest fees, no hidden charges.
+            Every transaction is transparent, every fee is justified.
           </p>
 
           {/* User Type Toggle */}
