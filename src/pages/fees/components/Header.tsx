@@ -24,7 +24,7 @@ export default function Header({ userType, onUserTypeChange }: HeaderProps) {
               >
                 VitalSwap
               </div> */}
-              <img style={{ width: "180px" }} src={logo} alt="VitalSwap Logo" />
+              <img style={{ width: "30%" }} src={logo} alt="VitalSwap Logo" />
             </div>
 
             {/* Desktop Navigation */}
@@ -130,13 +130,16 @@ export default function Header({ userType, onUserTypeChange }: HeaderProps) {
           >
             <span
               className="text-6xl font-bold text-gray-900 mb-6"
-              style={{ fontFamily: "Poppins, sans-serif", color: "#043061" }}
+              style={{
+                fontFamily: "Poppins, sans-serif",
+                color: "#043061",
+              }}
             >
               pay
             </span>
             <img
               style={{
-                width: "80px",
+                width: "7%",
               }}
               src={payLogo}
               alt="VitalSwap Logo"
