@@ -1,0 +1,148 @@
+
+import { useState } from 'react';
+
+interface HeaderProps {
+  userType: 'individual' | 'business';
+  onUserTypeChange: (type: 'individual' | 'business') => void;
+}
+
+export default function Header({ userType, onUserTypeChange }: HeaderProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  return (
+    <div className="bg-white">
+      {/* Navigation Bar */}
+      <nav className="bg-white border-b border-gray-100 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo */}
+            <div className="flex items-center">
+              <div className="text-2xl font-bold text-blue-600" style={{ fontFamily: 'Pacifico, serif' }}>
+                VitalSwap
+              </div>
+            </div>
+
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center space-x-8">
+              <a href="#" className="text-gray-700 hover:text-blue-600 font-medium transition-colors">
+                Personal
+              </a>
+              <a href="#" className="text-gray-700 hover:text-blue-600 font-medium transition-colors">
+                Business
+              </a>
+              <a href="#" className="text-gray-700 hover:text-blue-600 font-medium transition-colors">
+                Pricing
+              </a>
+              <a href="#" className="text-gray-700 hover:text-blue-600 font-medium transition-colors">
+                Help
+              </a>
+              <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium whitespace-nowrap">
+                Sign In
+              </button>
+              <button className="bg-yellow-500 text-black px-4 py-2 rounded-lg hover:bg-yellow-600 transition-colors font-medium whitespace-nowrap">
+                Get Started
+              </button>
+            </div>
+
+            {/* Mobile menu button */}
+            <div className="md:hidden">
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="text-gray-700 hover:text-blue-600 p-2"
+              >
+                <i className={`ri-${isMenuOpen ? 'close' : 'menu'}-line text-xl`}></i>
+              </button>
+            </div>
+          </div>
+
+          {/* Mobile Navigation */}
+          {isMenuOpen && (
+            <div className="md:hidden py-4 border-t border-gray-100">
+              <div className="flex flex-col space-y-4">
+                <a href="#" className="text-gray-700 hover:text-blue-600 font-medium">
+                  Personal
+                </a>
+                <a href="#" className="text-gray-700 hover:text-blue-600 font-medium">
+                  Business
+                </a>
+                <a href="#" className="text-gray-700 hover:text-blue-600 font-medium">
+                  Pricing
+                </a>
+                <a href="#" className="text-gray-700 hover:text-blue-600 font-medium">
+                  Help
+                </a>
+                <div className="flex flex-col space-y-2 pt-2">
+                  <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                    Sign In
+                  </button>
+                  <button className="bg-yellow-500 text-black px-4 py-2 rounded-lg hover:bg-yellow-600 transition-colors font-medium">
+                    Get Started
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </nav>
+
+      {/* Header Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4" style={{ fontFamily: 'Gilroy, sans-serif' }}>
+            VitalSwap Fees & Exchange Rates
+          </h1>
+          <p className="text-xl text-blue-600 font-semibold mb-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            Transparent. Fair. Global.
+          </p>
+          <p className="text-lg text-gray-600 max-w-3xl mx-auto mb-8" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            Easily explore our transaction fees and FX rates — built for clarity and trust.
+          </p>
+
+          {/* User Type Toggle */}
+          <div className="flex justify-center mb-8">
+            <div className="bg-gray-100 p-1 rounded-full inline-flex">
+              <button
+                onClick={() => onUserTypeChange('individual')}
+                className={`px-6 py-2 rounded-full font-medium transition-all whitespace-nowrap ${
+                  userType === 'individual'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+                style={{ fontFamily: 'Poppins, sans-serif' }}
+              >
+                Individual
+              </button>
+              <button
+                onClick={() => onUserTypeChange('business')}
+                className={`px-6 py-2 rounded-full font-medium transition-all whitespace-nowrap ${
+                  userType === 'business'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+                style={{ fontFamily: 'Poppins, sans-serif' }}
+              >
+                Business
+              </button>
+            </div>
+          </div>
+
+          {/* Swaptag Buttons */}
+          <div className="flex flex-wrap justify-center gap-4">
+            <button className="bg-yellow-500 text-black px-6 py-3 rounded-lg hover:bg-yellow-600 transition-colors font-medium whitespace-nowrap">
+              Alex's Swaptag
+            </button>
+            <button className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium whitespace-nowrap">
+              Sarah's Swaptag
+            </button>
+            <button className="bg-yellow-500 text-black px-6 py-3 rounded-lg hover:bg-yellow-600 transition-colors font-medium whitespace-nowrap">
+              Mike's Swaptag
+            </button>
+            <button className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium whitespace-nowrap">
+              Emma's Swaptag
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
