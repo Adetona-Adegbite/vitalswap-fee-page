@@ -5,6 +5,7 @@ import FeeCalculator from "./components/FeeCalculator";
 import WhereFeesGo from "./components/WhereFeesGo";
 import Footer from "./components/Footer";
 import ExchangeCalculator from "./components/FXExchnage";
+import VitalFxTicker from "./components/RealTImeFX";
 
 export default function FeesPage() {
   const [userType, setUserType] = useState<"individual" | "business">(
@@ -15,6 +16,7 @@ export default function FeesPage() {
     <div className="min-h-screen bg-white">
       <Header userType={userType} onUserTypeChange={setUserType} />
       <FeeCards userType={userType} />
+      <VitalFxTicker />
       <FeeCalculator userType={userType} />
       <ExchangeCalculator />
       <WhereFeesGo />
