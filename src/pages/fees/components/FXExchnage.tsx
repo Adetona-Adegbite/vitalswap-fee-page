@@ -14,7 +14,7 @@ const currencySymbols: Record<string, string> = {
 };
 
 const formatCurrency = (value: number, currency: string) => {
-  if (Number.isNaN(value)) return "-";
+  if (!Number.isFinite(value)) return "-";
   const symbol = currencySymbols[currency] ?? "";
   return `${symbol}${value.toLocaleString(undefined, {
     minimumFractionDigits: 2,
@@ -45,7 +45,7 @@ const ExchangeCalculator: React.FC = () => {
   const [converted, setConverted] = useState<number | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
-  const valid = from && to && Number(amount) > 0 && from !== to;
+  const valid = !!from && !!to && Number(amount) > 0 && from !== to;
 
   const swap = () => {
     setFrom((prevFrom) => {
@@ -53,6 +53,7 @@ const ExchangeCalculator: React.FC = () => {
       setTo(prevFrom);
       return prevTo;
     });
+    // keep amount as-is
   };
 
   const calculate = async () => {
@@ -78,25 +79,52 @@ const ExchangeCalculator: React.FC = () => {
     setLoading(true);
 
     try {
-      const url = `https://api.exchangerate.host/convert?from=${encodeURIComponent(
+      // endpoint returns: { from: "USD", to: "NGN", rate: 1480 }
+      const url = `https://2kbbumlxz3.execute-api.us-east-1.amazonaws.com/default/exchange?from=${encodeURIComponent(
         from
-      )}&to=${encodeURIComponent(to)}&amount=${encodeURIComponent(amt)}`;
+      )}&to=${encodeURIComponent(to)}`;
 
       const res = await fetch(url);
-      if (!res.ok) throw new Error("Failed to reach exchange API.");
+      if (!res.ok) throw new Error(`Exchange API responded ${res.status}`);
 
       const data = await res.json();
-      const fetchedRate = data?.info?.rate ?? null;
-      const fetchedResult = data?.result ?? null;
-      const date = data?.date ?? null;
 
-      if (fetchedRate == null || fetchedResult == null) {
-        throw new Error("Unexpected response from exchange API.");
+      // support both numeric rate and string numbers
+      const fetchedRate = data?.rate ?? data?.Rate ?? null;
+      if (fetchedRate == null) {
+        throw new Error(
+          "Unexpected response from exchange API (missing rate)."
+        );
       }
 
-      setRate(Number(fetchedRate));
-      setConverted(Number(fetchedResult));
-      setLastUpdated(date ?? new Date().toISOString().slice(0, 10));
+      const numericRate =
+        typeof fetchedRate === "number"
+          ? fetchedRate
+          : parseFloat(String(fetchedRate));
+      if (!Number.isFinite(numericRate)) {
+        throw new Error("Invalid rate returned from exchange API.");
+      }
+
+      const convertedValue =
+        Math.round((amt * numericRate + Number.EPSILON) * 100) / 100;
+
+      setRate(numericRate);
+      setConverted(convertedValue);
+
+      // try to read provided from/to and optional timestamp
+      const respFrom = data?.from ?? data?.From ?? from;
+      const respTo = data?.to ?? data?.To ?? to;
+      // optional: if API returns a timestamp/date, use it; else use now
+      const date = data?.date ?? data?.timestamp ?? null;
+      setLastUpdated(
+        date ? String(date).slice(0, 10) : new Date().toISOString().slice(0, 10)
+      );
+
+      // if API returned different currencies, sync them (keeps displayed chips consistent)
+      if (respFrom && respTo) {
+        setFrom(String(respFrom));
+        setTo(String(respTo));
+      }
     } catch (err: any) {
       setError(err?.message ?? "An unknown error occurred.");
     } finally {
@@ -112,13 +140,14 @@ const ExchangeCalculator: React.FC = () => {
             className="text-2xl md:text-3xl font-bold text-gray-900"
             style={{ fontFamily: "Gilroy, sans-serif" }}
           >
-            Currency Converter
+            Currency Rate
           </h2>
           <p
             className="text-sm text-gray-600"
             style={{ fontFamily: "Poppins, sans-serif" }}
           >
-            Live conversion with friendly UI — swap, convert and see the rate.
+            Fetches a single exchange rate (API returns a rate only). Multiply
+            by amount to get converted value.
           </p>
         </div>
 
@@ -172,8 +201,6 @@ const ExchangeCalculator: React.FC = () => {
               <option value="EUR">EUR - Euro</option>
               <option value="GBP">GBP - British Pound</option>
             </select>
-
-            {/* styled icon */}
             <FiChevronDown className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           </div>
         </div>
@@ -200,7 +227,6 @@ const ExchangeCalculator: React.FC = () => {
               step="0.01"
             />
 
-            {/* swap button — positioned centered vertically and styled */}
             <button
               onClick={swap}
               className="absolute right-3 top-1/2 -translate-y-1/2 bg-white px-2 py-1 rounded-md border border-gray-100 shadow-sm hover:bg-gray-50 flex items-center justify-center"
@@ -233,7 +259,6 @@ const ExchangeCalculator: React.FC = () => {
               <option value="EUR">EUR - Euro</option>
               <option value="GBP">GBP - British Pound</option>
             </select>
-
             <FiChevronDown className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           </div>
         </div>
@@ -255,12 +280,12 @@ const ExchangeCalculator: React.FC = () => {
           {loading ? (
             <span className="inline-flex items-center gap-2">
               <FiLoader className="animate-spin" />
-              Converting...
+              Fetching rate...
             </span>
           ) : (
             <span className="inline-flex items-center gap-2">
               <FiArrowRight />
-              Convert
+              Get Rate
             </span>
           )}
         </button>
@@ -279,7 +304,7 @@ const ExchangeCalculator: React.FC = () => {
               className="mt-3 text-sm text-gray-600"
               style={{ fontFamily: "Poppins, sans-serif" }}
             >
-              Enter amount & currencies, then Convert.
+              Select currencies and click Get Rate.
             </div>
           ) : (
             <div className="mt-3 md:mt-0 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
@@ -306,7 +331,7 @@ const ExchangeCalculator: React.FC = () => {
                   </div>
                   {lastUpdated && (
                     <div className="text-xs text-gray-400 mt-1">
-                      updated: {lastUpdated}
+                      fetched: {lastUpdated}
                     </div>
                   )}
                 </div>

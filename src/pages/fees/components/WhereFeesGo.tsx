@@ -1,3 +1,4 @@
+import { FiGlobe, FiShuffle, FiBarChart2, FiMail } from "react-icons/fi";
 export default function WhereFeesGo() {
   return (
     <div className="bg-gray-50 py-16">
@@ -94,47 +95,102 @@ export default function WhereFeesGo() {
             className="text-2xl font-bold text-gray-900 text-center mb-8"
             style={{ fontFamily: "Gilroy, sans-serif" }}
           >
-            Frequently Asked Questions
+            How fees & rates work
           </h3>
 
-          <div className="max-w-3xl mx-auto space-y-4">
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="flex items-center justify-between cursor-pointer">
-                <h4
+          <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white rounded-lg border border-gray-200 p-6 flex gap-4 items-start">
+              <div className="w-10 h-10 rounded-lg bg-gray-50 grid place-items-center text-xl text-blue-600">
+                <FiGlobe />
+              </div>
+              <div>
+                <div
                   className="font-semibold text-gray-900"
                   style={{ fontFamily: "Poppins, sans-serif" }}
                 >
-                  Why does the fee vary by network?
-                </h4>
-                <i className="ri-arrow-down-s-line text-gray-400"></i>
+                  Rate source
+                </div>
+                <p className="text-sm text-gray-600 mt-1">
+                  Live FX rates are pulled from our exchange feed. Rates are
+                  refreshed periodically — use the refresh button above to fetch
+                  the latest values.
+                </p>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="flex items-center justify-between cursor-pointer">
-                <h4
+            <div className="bg-white rounded-lg border border-gray-200 p-6 flex gap-4 items-start">
+              <div className="w-10 h-10 rounded-lg bg-gray-50 grid place-items-center text-xl text-yellow-600">
+                <FiShuffle />
+              </div>
+              <div>
+                <div
                   className="font-semibold text-gray-900"
                   style={{ fontFamily: "Poppins, sans-serif" }}
                 >
-                  Do you charge hidden fees?
-                </h4>
-                <i className="ri-arrow-down-s-line text-gray-400"></i>
+                  What affects fees
+                </div>
+                <p className="text-sm text-gray-600 mt-1">
+                  Fees can vary by product, currency rails, and route (NGN rails
+                  vs USD rails). Some services include a percentage spread,
+                  fixed charge, or both — details are shown per service when you
+                  open a card.
+                </p>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="flex items-center justify-between cursor-pointer">
-                <h4
+            <div className="bg-white rounded-lg border border-gray-200 p-6 flex gap-4 items-start">
+              <div className="w-10 h-10 rounded-lg bg-gray-50 grid place-items-center text-xl text-green-600">
+                <FiBarChart2 />
+              </div>
+              <div>
+                <div
                   className="font-semibold text-gray-900"
                   style={{ fontFamily: "Poppins, sans-serif" }}
                 >
-                  How can I reduce my fees?
-                </h4>
-                <i className="ri-arrow-down-s-line text-gray-400"></i>
+                  Supported currencies
+                </div>
+                <p className="text-sm text-gray-600 mt-1">
+                  We currently surface USD, NGN, EUR and GBP across products. If
+                  you need additional currencies or a specific quote, contact
+                  our team below.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg border border-gray-200 p-6 flex gap-4 items-start">
+              <div className="w-10 h-10 rounded-lg bg-gray-50 grid place-items-center text-xl text-pink-600">
+                <FiMail />
+              </div>
+              <div>
+                <div
+                  className="font-semibold text-gray-900"
+                  style={{ fontFamily: "Poppins, sans-serif" }}
+                >
+                  Support & integration
+                </div>
+                <p className="text-sm text-gray-600 mt-1">
+                  Questions or want this data in your dashboard? Email{" "}
+                  <a
+                    href="mailto:contact@vitalswap.com"
+                    className="text-blue-600 underline"
+                  >
+                    contact@vitalswap.com
+                  </a>{" "}
+                  or add the API endpoint to your integrations.
+                </p>
               </div>
             </div>
           </div>
+
+          {/* <div className="max-w-4xl mx-auto text-center mt-6">
+            <small className="text-xs text-gray-400">
+              Tip: click “See Details” on a product card to view per-service
+              fees, and use the top refresh button to reload fee data from the
+              API.
+            </small>
+          </div> */}
         </div>
+        {/* ---- end replacement ---- */}
 
         {/* Trust Indicators */}
         <div className="mt-16">

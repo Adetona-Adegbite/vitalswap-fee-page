@@ -15,7 +15,7 @@ export default function FeesPage() {
     <div className="min-h-screen bg-white">
       <Header userType={userType} onUserTypeChange={setUserType} />
       <FeeCards userType={userType} />
-      <FeeCalculator />
+      <FeeCalculator userType={userType} />
       <ExchangeCalculator />
       <WhereFeesGo />
       <Footer />

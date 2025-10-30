@@ -25,11 +25,13 @@ export default function Header({ userType, onUserTypeChange }: HeaderProps) {
               >
                 VitalSwap
               </div> */}
-              <img
-                style={{ width: "30%" }}
-                src="/logo blue.png"
-                alt="VitalSwap Logo"
-              />
+              <a href="https://vitalswap.com">
+                <img
+                  style={{ width: "28%" }}
+                  src="/logo blue.png"
+                  alt="VitalSwap Logo"
+                />
+              </a>
             </div>
 
             {/* Desktop Navigation */}
@@ -196,19 +198,19 @@ export default function Header({ userType, onUserTypeChange }: HeaderProps) {
           <div className="flex flex-wrap justify-center gap-4">
             <button className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-3xl hover:bg-blue-700 transition-colors font-medium whitespace-nowrap">
               <FiUserPlus className="text-white text-lg" />
-              Sarah Kim @sarahk_swap
+              Adetona @adetona
             </button>
             <button className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-3xl hover:bg-blue-700 transition-colors font-medium whitespace-nowrap">
               <FiUserPlus className="text-white text-lg" />
-              Joe doe @joe_swap
+              Ebube @ebube
             </button>
             <button className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-3xl hover:bg-blue-700 transition-colors font-medium whitespace-nowrap">
               <FiUserPlus className="text-white text-lg" />
-              Mike Ade @mikea_vital
+              Musa @musalee
             </button>
             <button className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-3xl hover:bg-blue-700 transition-colors font-medium whitespace-nowrap">
               <FiUserPlus className="text-white text-lg" />
-              Tim Li @tili_swap
+              Kolade @kollyaz
             </button>
           </div>
         </div>
