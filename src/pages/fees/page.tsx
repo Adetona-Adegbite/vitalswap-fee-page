@@ -4,6 +4,7 @@ import FeeCards from "./components/FeeCards";
 import FeeCalculator from "./components/FeeCalculator";
 import WhereFeesGo from "./components/WhereFeesGo";
 import Footer from "./components/Footer";
+import ExchangeCalculator from "./components/FXExchnage";
 
 export default function FeesPage() {
   const [userType, setUserType] = useState<"individual" | "business">(
@@ -15,7 +16,7 @@ export default function FeesPage() {
       <Header userType={userType} onUserTypeChange={setUserType} />
       <FeeCards userType={userType} />
       <FeeCalculator />
-
+      <ExchangeCalculator />
       <WhereFeesGo />
       <Footer />
     </div>
