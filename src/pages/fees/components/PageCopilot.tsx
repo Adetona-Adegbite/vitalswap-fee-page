@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { FiMessageCircle, FiX, FiSend, FiSettings } from "react-icons/fi";
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const MODEL = "gemini-1.5-flash";
+const MODEL = "gemini-2.5-flash";
 const MAX_CONTEXT_CHARS = 3500;
 
 type Message = {
@@ -80,7 +80,7 @@ export default function PageCopilot() {
 
     try {
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
         {
           method: "POST",
           headers: {
@@ -182,7 +182,7 @@ export default function PageCopilot() {
               </div>
 
               <div className="flex items-center gap-1">
-                <button
+                {/* <button
                   onClick={() => {
                     const key = prompt(
                       "Enter your Gemini API key (stored in session):"
@@ -199,7 +199,7 @@ export default function PageCopilot() {
                   title="Set API Key"
                 >
                   <FiSettings className="w-4 h-4" />
-                </button>
+                </button> */}
                 <button
                   onClick={() => setOpen(false)}
                   className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-slate-600 dark:text-slate-300"
