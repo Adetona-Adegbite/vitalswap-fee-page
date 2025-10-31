@@ -1,8 +1,25 @@
+// src/components/FeeCards.tsx
 import React, { useState, useEffect } from "react";
 
 interface FeeCardsProps {
   userType: "individual" | "business";
 }
+
+/**
+ * Utility: map gradient hint -> border classes (explicit so Tailwind picks them up)
+ */
+const BORDER_CLASS_MAP: Record<string, string> = {
+  blue: "border-blue-200 dark:border-blue-400/20",
+  yellow: "border-yellow-200 dark:border-yellow-400/20",
+  default: "border-gray-100 dark:border-gray-700",
+};
+
+const pickBorderClassFromGradient = (grad?: string) => {
+  if (!grad) return BORDER_CLASS_MAP.default;
+  if (grad.includes("yellow")) return BORDER_CLASS_MAP.yellow;
+  if (grad.includes("blue")) return BORDER_CLASS_MAP.blue;
+  return BORDER_CLASS_MAP.default;
+};
 
 const FeeCards: React.FC<FeeCardsProps> = ({ userType }) => {
   const [openCardId, setOpenCardId] = useState<string | null>(null);
@@ -15,37 +32,55 @@ const FeeCards: React.FC<FeeCardsProps> = ({ userType }) => {
   };
 
   useEffect(() => {
+    let mounted = true;
     fetch("https://2kbbumlxz3.execute-api.us-east-1.amazonaws.com/default/fee")
       .then((response) => response.json())
       .then((data) => {
+        if (!mounted) return;
         setFeesData(data);
         setLoading(false);
       })
-      .catch((error) => {
-        console.error("Error fetching fees:", error);
+      .catch((err) => {
+        console.error("Error fetching fees:", err);
+        if (!mounted) return;
         setError("Failed to load fees. Please try again later.");
         setLoading(false);
       });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const typeKey = userType === "individual" ? "Customer" : "Business";
 
-  const getVirtualAccountsFees = (data: any, isIndividual: boolean) => {
-    const usSection = data["US Virtual Bank Account"];
-    const ngSection = data["NG Virtual Bank Account"];
+  // Helper: safe retrieval (if feesData not loaded return empty arrays)
+  const safeSection = (sectionName: string) =>
+    (feesData && feesData[typeKey] && feesData[typeKey][sectionName]) || [];
+
+  const getVirtualAccountsFees = (isIndividual: boolean) => {
+    const usSection = safeSection("US Virtual Bank Account");
+    const ngSection = safeSection("NG Virtual Bank Account");
     const usIssue = usSection.find((s: any) =>
-      s.Service.includes("Account Issue")
-    );
-    const ach = usSection.find((s: any) => s.Service === "ACH Deposit Fee");
-    const wire = usSection.find((s: any) => s.Service === "Wire Deposit Fee");
-    const fraudUs = usSection.find((s: any) => s.Service === "Fraud Reversal");
+      s?.Service?.includes("Account Issue")
+    ) || { Fee: "FREE" };
+    const ach = usSection.find((s: any) => s.Service === "ACH Deposit Fee") || {
+      Fee: "FREE",
+    };
+    const wire = usSection.find(
+      (s: any) => s.Service === "Wire Deposit Fee"
+    ) || { Fee: "FREE" };
+    const fraudUs = usSection.find(
+      (s: any) => s.Service === "Fraud Reversal"
+    ) || { Fee: "FREE" };
     const diligence = usSection.find(
       (s: any) => s.Service === "3rd Party Requiring Extra Diligence"
-    );
+    ) || { Fee: "3%" };
     const funding = ngSection.find(
       (s: any) => s.Service === "NGN Wallet Funding"
-    );
-    const fraudNg = ngSection.find((s: any) => s.Service === "Fraud Reversal");
+    ) || { Fee: "₦0" };
+    const fraudNg = ngSection.find(
+      (s: any) => s.Service === "Fraud Reversal"
+    ) || { Fee: "₦0" };
 
     return [
       {
@@ -65,26 +100,28 @@ const FeeCards: React.FC<FeeCardsProps> = ({ userType }) => {
     ];
   };
 
-  const getTransfersFees = (data: any, isIndividual: boolean) => {
-    const payoutSection = data[isIndividual ? "Payout" : "Business Payout"];
-    const walletSection = data["Wallet to Wallet Transfer"];
+  const getTransfersFees = (isIndividual: boolean) => {
+    const payoutSection = safeSection(
+      isIndividual ? "Payout" : "Business Payout"
+    );
+    const walletSection = safeSection("Wallet to Wallet Transfer");
     const ngnPayout = payoutSection.find(
       (s: any) => s.Service === "NGN Payout - Instant"
-    );
+    ) || { Fee: "FREE" };
     const usdPayoutSlow = payoutSection.find(
       (s: any) => s.Service === "USD Payout - 2-5 days"
-    );
+    ) || { Fee: "FREE" };
     const usdPayoutFast = payoutSection.find(
       (s: any) => s.Service === "USD Payout - 24hours"
-    );
+    ) || { Fee: "$0" };
 
     if (isIndividual) {
       const indToInd = walletSection.find(
         (s: any) => s.Service === "NGN Individual → Individual"
-      );
+      ) || { Fee: "FREE" };
       const indToBus = walletSection.find(
         (s: any) => s.Service === "NGN Individual → Business"
-      );
+      ) || { Fee: "3%" };
       return [
         { name: "NGN Payout (Instant)", amount: ngnPayout.Fee },
         { name: "USD Payout (2–5 days)", amount: usdPayoutSlow.Fee },
@@ -95,7 +132,7 @@ const FeeCards: React.FC<FeeCardsProps> = ({ userType }) => {
     } else {
       const indToBus = walletSection.find(
         (s: any) => s.Service === "NGN Individual → Business"
-      );
+      ) || { Fee: "2%" };
       return [
         { name: "NGN Payout (Instant)", amount: ngnPayout.Fee },
         { name: "USD Payout (2–5 days)", amount: usdPayoutSlow.Fee },
@@ -106,16 +143,16 @@ const FeeCards: React.FC<FeeCardsProps> = ({ userType }) => {
     }
   };
 
-  const getVirtualCardFees = (data: any) => {
-    const section = data["Freedom Virtual Card"];
+  const getVirtualCardFees = () => {
+    const section = safeSection("Freedom Virtual Card");
     return section.map((s: any) => ({
       name: s.Service,
       amount: s.Fee + (s.Description ? ` (${s.Description})` : ""),
     }));
   };
 
-  const getFXFees = (data: any) => {
-    const section = data.FX;
+  const getFXFees = () => {
+    const section = safeSection("FX");
     return section.map((s: any) => ({
       name: s.Service,
       amount:
@@ -129,13 +166,14 @@ const FeeCards: React.FC<FeeCardsProps> = ({ userType }) => {
     }));
   };
 
-  const getCollectionsFees = (data: any) => {
-    const section = data["Business Collections"];
+  const getCollectionsFees = () => {
+    const section = safeSection("Business Collections");
+    const mapped = section.map((s: any) => ({
+      name: s.Service,
+      amount: s.Fee + (s.Description ? ` (${s.Description})` : ""),
+    }));
     return [
-      ...section.map((s: any) => ({
-        name: s.Service,
-        amount: s.Fee + (s.Description ? ` (${s.Description})` : ""),
-      })),
+      ...mapped,
       { name: "Payment Gateway Integration", amount: "FREE" },
       { name: "Chargeback Handling", amount: "$25" },
     ];
@@ -151,7 +189,7 @@ const FeeCards: React.FC<FeeCardsProps> = ({ userType }) => {
             feeRange: "FREE – $100",
             icon: "ri-bank-line",
             gradient: "from-blue-500 to-blue-600",
-            getFees: () => getVirtualAccountsFees(feesData[typeKey], true),
+            getFees: () => getVirtualAccountsFees(true),
           },
           {
             id: "transfers-payouts",
@@ -159,8 +197,8 @@ const FeeCards: React.FC<FeeCardsProps> = ({ userType }) => {
             summary: "Send money globally and transfer between wallets.",
             feeRange: "FREE – $10",
             icon: "ri-send-plane-line",
-            gradient: "from-yellow-500 to-yellow-500",
-            getFees: () => getTransfersFees(feesData[typeKey], true),
+            gradient: "from-yellow-400 to-yellow-500",
+            getFees: () => getTransfersFees(true),
           },
           {
             id: "virtual-card",
@@ -168,8 +206,8 @@ const FeeCards: React.FC<FeeCardsProps> = ({ userType }) => {
             summary: "Spend globally with a secure virtual card.",
             feeRange: "FREE – 1.5%",
             icon: "ri-bank-card-line",
-            gradient: "from-blue-500 to-blue-600",
-            getFees: () => getVirtualCardFees(feesData[typeKey]),
+            gradient: "from-blue-400 to-blue-500",
+            getFees: () => getVirtualCardFees(),
           },
           {
             id: "fx-exchange",
@@ -177,8 +215,8 @@ const FeeCards: React.FC<FeeCardsProps> = ({ userType }) => {
             summary: "Swap currencies instantly with competitive rates.",
             feeRange: "FREE",
             icon: "ri-currency-line",
-            gradient: "from-yellow-500 to-yellow-500",
-            getFees: () => getFXFees(feesData[typeKey]),
+            gradient: "from-yellow-500 to-yellow-600",
+            getFees: () => getFXFees(),
           },
         ]
       : [
@@ -189,7 +227,7 @@ const FeeCards: React.FC<FeeCardsProps> = ({ userType }) => {
             feeRange: "FREE – $100",
             icon: "ri-building-line",
             gradient: "from-blue-500 to-blue-600",
-            getFees: () => getVirtualAccountsFees(feesData[typeKey], false),
+            getFees: () => getVirtualAccountsFees(false),
           },
           {
             id: "business-collections",
@@ -197,8 +235,8 @@ const FeeCards: React.FC<FeeCardsProps> = ({ userType }) => {
             summary: "Streamlined payment collection and settlement services.",
             feeRange: "₦200 – 2%",
             icon: "ri-money-dollar-circle-line",
-            gradient: "from-yellow-500 to-yellow-500",
-            getFees: () => getCollectionsFees(feesData[typeKey]),
+            gradient: "from-yellow-400 to-yellow-500",
+            getFees: () => getCollectionsFees(),
           },
           {
             id: "business-payouts",
@@ -206,8 +244,8 @@ const FeeCards: React.FC<FeeCardsProps> = ({ userType }) => {
             summary: "Efficient global payments and business transfers.",
             feeRange: "FREE – $10",
             icon: "ri-exchange-funds-line",
-            gradient: "from-blue-500 to-blue-600",
-            getFees: () => getTransfersFees(feesData[typeKey], false),
+            gradient: "from-blue-400 to-blue-500",
+            getFees: () => getTransfersFees(false),
           },
           {
             id: "business-fx",
@@ -215,8 +253,8 @@ const FeeCards: React.FC<FeeCardsProps> = ({ userType }) => {
             summary: "Professional currency exchange with better spreads.",
             feeRange: "FREE",
             icon: "ri-line-chart-line",
-            gradient: "from-yellow-500 to-yellow-500",
-            getFees: () => getFXFees(feesData[typeKey]),
+            gradient: "from-yellow-500 to-yellow-600",
+            getFees: () => getFXFees(),
           },
         ];
 
@@ -231,18 +269,21 @@ const FeeCards: React.FC<FeeCardsProps> = ({ userType }) => {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 p-6 md:p-12">
+    <div className="grid dark:bg-gray-800 grid-cols-1 md:grid-cols-2 gap-8 mb-12 p-6 md:p-12">
       {cardConfigs.map((cardConfig) => {
         const isOpen = openCardId === cardConfig.id;
         const detailsId = `${cardConfig.id}-details`;
         const headerId = `${cardConfig.id}-header`;
         const fees = loading ? [] : cardConfig.getFees();
+        const borderClass = pickBorderClassFromGradient(cardConfig.gradient);
 
         return (
           <div
             key={cardConfig.id}
             data-card-id={cardConfig.id}
-            className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden border border-gray-100"
+            className={`bg-panel  rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden border ${borderClass}`}
+            aria-labelledby={headerId}
+            role="region"
           >
             <div
               className={`bg-gradient-to-r ${cardConfig.gradient} p-6 text-white`}
@@ -259,14 +300,14 @@ const FeeCards: React.FC<FeeCardsProps> = ({ userType }) => {
               <h3
                 id={headerId}
                 className="text-xl font-bold mb-2"
-                style={{ fontFamily: "Gilroy, sans-serif" }}
+                style={{ fontFamily: "var(--font-heading)" }}
               >
                 {cardConfig.title}
               </h3>
 
               <p
                 className="text-white/90 text-sm"
-                style={{ fontFamily: "Poppins, sans-serif" }}
+                style={{ fontFamily: "var(--font-ui)" }}
               >
                 {cardConfig.summary}
               </p>
@@ -277,10 +318,10 @@ const FeeCards: React.FC<FeeCardsProps> = ({ userType }) => {
                 onClick={() => toggleCard(cardConfig.id)}
                 aria-expanded={isOpen}
                 aria-controls={detailsId}
-                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white py-3 px-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer"
-                style={{ fontFamily: "Poppins, sans-serif" }}
+                className="w-full bg-panel dark:bg-slate-700 text-accent dark:text-accent py-3 px-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer border border-transparent hover:scale-[1.01]"
+                style={{ fontFamily: "var(--font-ui)" }}
               >
-                <span>See Details</span>
+                <span className="text-sm">See Details</span>
                 <span
                   aria-hidden
                   className={`inline-block transition-transform duration-300 ${
@@ -299,23 +340,23 @@ const FeeCards: React.FC<FeeCardsProps> = ({ userType }) => {
               >
                 {loading ? (
                   <div className="flex justify-center items-center py-4">
-                    <i className="ri-loader-4-line text-3xl animate-spin text-blue-500"></i>
+                    <i className="ri-loader-4-line text-3xl animate-spin text-blue-500" />
                   </div>
                 ) : (
                   fees.map((fee: any, index: number) => (
                     <div
                       key={index}
-                      className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0"
+                      className="flex justify-between items-center py-2 border-b border-card-border last:border-b-0"
                     >
                       <span
-                        className="text-gray-700 text-sm"
-                        style={{ fontFamily: "Poppins, sans-serif" }}
+                        className="text-muted text-sm"
+                        style={{ fontFamily: "var(--font-ui)" }}
                       >
                         {fee.name}
                       </span>
                       <span
-                        className="font-semibold text-gray-900"
-                        style={{ fontFamily: "Gilroy, sans-serif" }}
+                        className="font-semibold text-primary"
+                        style={{ fontFamily: "var(--font-heading)" }}
                       >
                         {fee.amount}
                       </span>

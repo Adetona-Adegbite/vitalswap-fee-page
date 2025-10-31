@@ -43,9 +43,26 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      (function () {
+        try {
+          const saved = localStorage.getItem("theme");
+          if (saved === "dark") {
+            document.documentElement.classList.add("dark");
+          } else if (saved === "light") {
+            document.documentElement.classList.remove("dark");
+          } else if (
+            window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches
+          ) {
+            document.documentElement.classList.add("dark");
+          }
+        } catch (e) {}
+      })();
+    </script>
 
     <!-- Readdy Agent Widget -->
-    <script
+    <!-- <script
       src="https://readdy.ai/api/public/assistant/widget?projectId=32e3b08d-493d-498e-944b-04e033569419"
       mode="hybrid"
       voice-show-transcript="true"
@@ -55,6 +72,6 @@
       button-base-color="#000000"
       button-accent-color="#FFFFFF"
       defer
-    ></script>
+    ></script> -->
   </body>
 </html>

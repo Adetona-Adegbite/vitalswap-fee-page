@@ -1,37 +1,25 @@
-// VitalFxUsdNgn.tsx
-import React, { useEffect, useRef, useState } from "react";
-import { FiRefreshCw, FiClock, FiChevronDown } from "react-icons/fi";
+import React, { useEffect, useState } from "react";
+import { FiRefreshCw, FiClock, FiDollarSign } from "react-icons/fi";
 
 type RateSample = { ts: number; rate: number };
-type PairData = {
-  pair: string;
-  rate: number | null;
-  prevRate?: number | null;
-  samples: RateSample[];
-  lastUpdated?: string | null;
-  changePct?: number | null;
-  loading: boolean;
-  error?: string | null;
-};
 
-const POLL_MS = 5000;
-const PAIR = "USD/NGN";
-const API_FOR_PAIR = (pair: string) => {
-  const [from, to] = pair.split("/").map((s) => s.trim().toUpperCase());
-  return `https://2kbbumlxz3.execute-api.us-east-1.amazonaws.com/default/exchange?from=${encodeURIComponent(
-    from
-  )}&to=${encodeURIComponent(to)}`;
-};
+const API_KEY = import.meta.env.VITE_FX_API_KEY;
+const DAYS_BACK = 30; // Fetch last 30 days of historical data
+const SOURCE_CURRENCY = "USD";
+const TARGET_CURRENCY = "NGN";
+const POLL_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
 const Sparkline: React.FC<{ samples: RateSample[] }> = ({ samples }) => {
   if (!samples || samples.length < 2)
-    return <div className="text-xs text-gray-400">—</div>;
+    return <div className="text-xs text-muted">—</div>;
+
   const vals = samples.map((s) => s.rate);
   const min = Math.min(...vals);
   const max = Math.max(...vals);
   const pad = (max - min) * 0.08 || 1;
-  const w = 120;
-  const h = 36;
+  const w = 160;
+  const h = 44;
+
   const points = samples
     .map((s, i) => {
       const x = (i / (samples.length - 1)) * w;
@@ -39,212 +27,277 @@ const Sparkline: React.FC<{ samples: RateSample[] }> = ({ samples }) => {
       return `${x},${y}`;
     })
     .join(" ");
+
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="block">
       <polyline
         fill="none"
-        stroke="#6B7280"
-        strokeWidth={1.6}
-        points={points}
+        stroke="currentColor"
+        strokeWidth={2}
         strokeLinejoin="round"
         strokeLinecap="round"
+        points={points}
       />
     </svg>
   );
 };
 
 export default function VitalFxUsdNgn() {
-  const [item, setItem] = useState<PairData>({
-    pair: PAIR,
-    rate: null,
-    prevRate: null,
-    samples: [],
-    lastUpdated: null,
-    changePct: null,
-    loading: true,
-    error: undefined,
-  });
-  const [loadingAll, setLoadingAll] = useState(true);
-  const pollRef = useRef<number | null>(null);
+  const [rate, setRate] = useState<number | null>(null);
+  const [prevRate, setPrevRate] = useState<number | null>(null);
+  const [samples, setSamples] = useState<RateSample[]>([]);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const pushSample = (newRate: number, ts?: number) => {
-    setItem((cur) => {
-      const prev = cur.rate ?? null;
-      const samples = [
-        ...cur.samples.filter((s) => Date.now() - s.ts < 60_000),
-      ];
-      samples.push({ ts: ts ?? Date.now(), rate: newRate });
-      if (samples.length > 18) samples.shift();
-      const changePct = prev
-        ? Math.round(((newRate - prev) / prev) * 10000) / 100
-        : cur.changePct ?? null;
-      return {
-        ...cur,
-        rate: newRate,
-        prevRate: prev,
-        samples,
-        lastUpdated: new Date().toISOString(),
-        loading: false,
-        error: undefined,
-        changePct,
-      };
-    });
-  };
-
-  const fetchPair = async () => {
-    setItem((s) => ({ ...s, loading: true, error: undefined }));
+  const fetchHistoricalData = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const url = API_FOR_PAIR(PAIR);
+      const endDate = new Date().toISOString().slice(0, 10);
+      const startDate = new Date(Date.now() - DAYS_BACK * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
+      const url = `https://api.exchangerate.host/timeframe?access_key=${API_KEY}&start_date=${startDate}&end_date=${endDate}&currencies=${TARGET_CURRENCY}&source=${SOURCE_CURRENCY}`;
       const res = await fetch(url, { cache: "no-cache" });
       if (!res.ok) throw new Error(`status ${res.status}`);
       const json = await res.json();
-      const r = json?.rate ?? json?.Rate ?? null;
-      const numeric = typeof r === "number" ? r : parseFloat(String(r));
-      if (!Number.isFinite(numeric)) throw new Error("invalid rate");
-      pushSample(
-        numeric,
-        json?.timestamp ? Date.parse(String(json.timestamp)) : undefined
-      );
-      setLoadingAll(false);
-    } catch (err: any) {
-      setItem((cur) => ({
-        ...cur,
-        loading: false,
-        error: String(err?.message ?? err),
+
+      if (!json.success || !json.quotes)
+        throw new Error("Invalid response format");
+
+      const dates = Object.keys(json.quotes).sort();
+      const newSamples: RateSample[] = dates.map((d) => ({
+        ts: Date.parse(d),
+        rate: json.quotes[d][`${SOURCE_CURRENCY}${TARGET_CURRENCY}`],
       }));
-      setLoadingAll(false);
+
+      if (newSamples.length === 0) throw new Error("No data available");
+
+      setSamples(newSamples);
+      const latestRate = newSamples[newSamples.length - 1].rate;
+      const firstRate = newSamples[0].rate;
+      setRate(latestRate);
+      setPrevRate(firstRate);
+      setLastUpdated(endDate);
+    } catch (err: any) {
+      setError(String(err?.message ?? err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchLiveRate = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const url = `https://api.exchangerate.host/live?access_key=${API_KEY}&currencies=${TARGET_CURRENCY}&source=${SOURCE_CURRENCY}`;
+      const res = await fetch(url, { cache: "no-cache" });
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const json = await res.json();
+
+      if (!json.success || !json.quotes)
+        throw new Error("Invalid response format");
+
+      const liveRate = json.quotes[`${SOURCE_CURRENCY}${TARGET_CURRENCY}`];
+      if (!Number.isFinite(liveRate)) throw new Error("Invalid rate");
+
+      setSamples((prev) => {
+        const now = Date.now();
+        const cutoff = now - DAYS_BACK * 24 * 60 * 60 * 1000;
+        const filtered = prev.filter((s) => s.ts >= cutoff);
+        return [...filtered, { ts: now, rate: liveRate }];
+      });
+      setPrevRate(rate);
+      setRate(liveRate);
+      setLastUpdated(new Date().toISOString());
+    } catch (err: any) {
+      setError(String(err?.message ?? err));
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    let mounted = true;
-    const start = async () => {
-      if (!mounted) return;
-      setLoadingAll(true);
-      await fetchPair();
-      if (!mounted) return;
-      pollRef.current = window.setInterval(() => fetchPair(), POLL_MS);
-      setLoadingAll(false);
-    };
-    start();
-    return () => {
-      mounted = false;
-      if (pollRef.current) window.clearInterval(pollRef.current);
-    };
+    fetchHistoricalData().then(() => fetchLiveRate());
+
+    const interval = setInterval(fetchLiveRate, POLL_INTERVAL_MS);
+
+    return () => clearInterval(interval);
   }, []);
 
-  const refresh = async () => {
-    setLoadingAll(true);
-    await fetchPair();
-    setLoadingAll(false);
-  };
+  const changePct =
+    rate != null && prevRate != null
+      ? Math.round(((rate - prevRate) / prevRate) * 10000) / 100
+      : null;
+  const up = changePct != null && changePct > 0;
+  const down = changePct != null && changePct < 0;
 
-  const up =
-    item.rate != null && item.prevRate != null && item.rate > item.prevRate;
-  const down =
-    item.rate != null && item.prevRate != null && item.rate < item.prevRate;
+  // fonts via CSS variables
+  const headingFont = "var(--font-heading)";
+  const uiFont = "var(--font-ui)";
 
   return (
-    <div className="max-w-xl mx-auto">
-      <div className="bg-gradient-to-r from-slate-50 to-white p-6 rounded-2xl border border-gray-100 shadow-md">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-xl bg-white/60 border border-gray-100 grid place-items-center text-sm font-bold text-slate-800">
-                USD/NGN
-              </div>
-              <div>
-                <div className="text-xs text-gray-500">Live rate</div>
-                <div className="flex items-baseline gap-3">
-                  <div
-                    className="text-2xl md:text-3xl font-extrabold text-slate-900"
-                    style={{ fontFamily: "Gilroy, sans-serif" }}
-                  >
-                    {item.rate != null
-                      ? item.rate.toLocaleString()
-                      : item.loading
-                      ? "…"
-                      : "—"}
-                  </div>
-                  {item.changePct != null && (
-                    <div
-                      className={`text-sm font-semibold ${
-                        up
-                          ? "text-green-600"
-                          : down
-                          ? "text-red-600"
-                          : "text-gray-500"
-                      }`}
-                    >
-                      {item.changePct > 0
-                        ? `+${item.changePct}%`
-                        : `${item.changePct}%`}
-                    </div>
-                  )}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">1 USD = NGN</div>
-              </div>
+    <div className="max-w-xl mx-auto ">
+      <div
+        className="rounded-2xl shadow-lg overflow-hidden border bg-panel dark:bg-slate-900"
+        style={{
+          borderRight: "1px solid var(--accent)",
+          borderTop: "1px solid var(--accent)",
+          borderBottom: "1px solid var(--accent)",
+          borderLeft: "6px solid var(--accent) ",
+          transition: "border-color .2s",
+        }}
+        role="region"
+        aria-label="USD to NGN rate"
+      >
+        <div className="p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-start gap-4 flex-1">
+            {/* ICON CARD */}
+            <div
+              className="w-16 h-16 rounded-xl grid place-items-center shrink-0 
+             border transition-all duration-300 shadow-sm
+             hover:shadow-md hover:scale-105"
+              style={{
+                background:
+                  "linear-gradient(135deg, var(--icon-grad-from), var(--icon-grad-to))",
+                // borderColor: "var(--icon-border)",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                // width: "20%",
+              }}
+              aria-hidden
+            >
+              <p
+                //@ts-ignore
+                style={{ minSize: "2rem" }}
+                className=" text-black-900 dark:text-slate-100 transition-colors"
+              >
+                $
+              </p>
             </div>
-
-            <div className="mt-4 flex items-center gap-4">
-              <div className="bg-white rounded-lg px-3 py-2 border border-gray-100 shadow-sm">
-                <div className="text-xs text-gray-500">Converted</div>
-                <div className="text-sm font-semibold">
-                  {item.rate != null
-                    ? `₦${(1 * item.rate).toLocaleString()}`
-                    : "—"}
-                </div>
+            <div className="min-w-0">
+              <div className="text-xs text-muted dark:text-gray-300">
+                Current vital swap rate
               </div>
 
-              <div className="bg-white rounded-lg px-3 py-2 border border-gray-100 shadow-sm">
-                <div className="text-xs text-gray-500">Last updated</div>
-                <div className="text-sm">
-                  {item.lastUpdated
-                    ? new Date(item.lastUpdated).toLocaleString()
-                    : "—"}
+              <div className="flex items-baseline gap-3">
+                <div
+                  className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white"
+                  style={{ fontFamily: headingFont }}
+                >
+                  {loading ? "…" : rate != null ? rate.toLocaleString() : "—"}
+                </div>
+
+                {changePct != null && (
+                  <div
+                    className={`text-sm font-semibold ${
+                      up
+                        ? "text-green-500"
+                        : down
+                        ? "text-red-500"
+                        : "text-muted dark:text-gray-300"
+                    }`}
+                  >
+                    {changePct > 0 ? `+${changePct}%` : `${changePct}%`}
+                  </div>
+                )}
+              </div>
+
+              <div className="text-xs text-muted dark:text-gray-300 mt-1">
+                1 USD = NGN
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-3">
+                <div className="bg-panel/80 dark:bg-slate-800/60 rounded-lg px-3 py-2 border border-card-border shadow-sm min-w-[120px]">
+                  <div className="text-xs text-muted dark:text-gray-300">
+                    Converted
+                  </div>
+                  <div
+                    className="text-sm font-semibold dark:text-slate-100"
+                    style={{ fontFamily: uiFont }}
+                  >
+                    {rate != null ? `₦${(1 * rate).toLocaleString()}` : "—"}
+                  </div>
+                </div>
+
+                <div className="bg-panel/80 dark:bg-slate-800/60 rounded-lg px-3 py-2 border border-card-border shadow-sm min-w-[160px]">
+                  <div className="text-xs text-muted dark:text-gray-300">
+                    Last updated
+                  </div>
+                  <div
+                    className="text-sm dark:text-slate-100"
+                    style={{ fontFamily: uiFont }}
+                  >
+                    {lastUpdated ? new Date(lastUpdated).toLocaleString() : "—"}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="w-40 flex flex-col items-end gap-3">
+          <div className="w-full md:w-auto flex items-center md:flex-col gap-3 justify-end">
             <button
-              onClick={refresh}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-100 shadow-sm hover:bg-gray-50"
+              onClick={fetchLiveRate}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-card-border shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700 transition"
+              aria-label="Refresh rate"
             >
-              <FiRefreshCw /> <span className="text-sm">Refresh</span>
+              <FiRefreshCw />
+              <span className="text-sm text-slate-700 dark:text-gray-200">
+                Refresh
+              </span>
             </button>
 
-            <div className="text-xs text-gray-400 flex items-center gap-1">
+            <div className="text-xs text-muted dark:text-gray-300 flex items-center gap-1">
               <FiClock />
-              <span>{loadingAll ? "Loading..." : "Live"}</span>
+              <span>{loading ? "Loading..." : "Live"}</span>
             </div>
           </div>
         </div>
 
-        <div className="mt-5 bg-white/60 p-3 rounded-xl border border-gray-100 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="text-xs text-gray-500">Trend</div>
-            <div style={{ minWidth: 140 }}>
-              <Sparkline samples={item.samples} />
+        <div className="p-4 md:p-5 border-t border-card-border bg-panel/60 dark:bg-slate-800/50">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4 text-muted dark:text-gray-300">
+              <div className="text-xs">{DAYS_BACK}-day trend</div>
+              <div
+                className={`${
+                  up
+                    ? "text-green-500"
+                    : down
+                    ? "text-red-500"
+                    : "text-muted dark:text-gray-300"
+                }`}
+                aria-hidden
+              >
+                <div style={{ minWidth: 180 }}>
+                  <Sparkline samples={samples} />
+                </div>
+              </div>
+            </div>
+
+            <div className="text-right">
+              <div className="text-xs text-muted dark:text-gray-300">Quote</div>
+              <div
+                className="text-sm font-semibold dark:text-slate-100"
+                style={{ fontFamily: uiFont }}
+              >
+                {rate != null ? `1 USD = ${rate.toLocaleString()} NGN` : "—"}
+              </div>
             </div>
           </div>
 
-          <div className="text-right">
-            <div className="text-xs text-gray-500">Quote</div>
-            <div className="text-sm font-semibold">
-              {item.rate != null
-                ? `1 USD = ${item.rate.toLocaleString()} NGN`
-                : "—"}
+          {/* {error && (
+            <div className="mt-4 text-sm text-red-600 bg-red-50 p-3 rounded-lg border border-red-100">
+              {error}
             </div>
-          </div>
+          )} */}
         </div>
 
-        {item.error && (
-          <div className="mt-4 text-sm text-red-600 bg-red-50 p-3 rounded-lg border border-red-100">
-            {item.error}
-          </div>
-        )}
+        <div className="sr-only" aria-live="polite">
+          {rate != null ? `USD to NGN updated: 1 USD = ${rate} NGN` : ""}
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,12 @@
+// FeeCalculator.tsx
 import React, { useEffect, useState } from "react";
-import { FiLoader, FiCheckCircle, FiAlertTriangle } from "react-icons/fi";
+import {
+  FiLoader,
+  FiCheckCircle,
+  FiAlertTriangle,
+  FiSun,
+  FiMoon,
+} from "react-icons/fi";
 
 interface FeeCalculatorProps {
   userType: "individual" | "business";
@@ -17,7 +24,7 @@ type FeeApiResponse = Record<string, ApiServiceRaw[]> & {
 };
 
 const formatCurrency = (value: number, currency: string) => {
-  if (Number.isNaN(value)) return "-";
+  if (!Number.isFinite(value)) return "-";
   if (currency === "NGN") return `₦${value.toLocaleString()}`;
   if (currency === "EUR") return `€${value.toLocaleString()}`;
   if (currency === "GBP") return `£${value.toLocaleString()}`;
@@ -28,16 +35,7 @@ const onKeyDownNumber = (e: React.KeyboardEvent<HTMLInputElement>) => {
   if (["e", "E", "+", "-"].includes(e.key)) e.preventDefault();
 };
 
-/**
- * parseFee: parses strings like:
- *  - "FREE"
- *  - "$1"
- *  - "₦200"
- *  - "1.5% ($1 – $5)"
- *  - "2% ($1-$2)"
- *
- * Returns an object with percent, fixed, min, max, currencySymbol, isFree, raw
- */
+/* parseFee omitted for brevity — reuse yours verbatim */
 const parseFee = (feeStr: string, description = "") => {
   if (!feeStr || feeStr.trim().length === 0) {
     return {
@@ -69,22 +67,18 @@ const parseFee = (feeStr: string, description = "") => {
   if (s[0] === "$" || s[0] === "₦" || s[0] === "€" || s[0] === "£")
     currency = s[0];
 
-  // percent pattern
   const percentMatch = s.match(/([\d.]+)%/);
   const hasPercent = !!percentMatch;
   const percent = hasPercent ? parseFloat(percentMatch![1]) : 0;
 
-  // fixed number pattern (first number with currency if present) — only pick non-percent numbers
   const fixedMatch = s.match(/(?:\$|₦|€|£)?\s*([\d,.]+)(?!.*%)/);
   let fixed = 0;
   if (fixedMatch && !hasPercent) {
     fixed = parseFloat(fixedMatch[1].replace(/,/g, ""));
   } else if (fixedMatch && hasPercent) {
-    // sometimes there's both percent and a fixed cap inside parentheses — keep fixed as 0 here (caps handled by min/max)
     fixed = 0;
   }
 
-  // min/max inside parentheses e.g. ($1 – $5) or ($1-$5)
   let min = 0;
   let max = 0;
   const rangeMatch = s.match(/\(([^)]+)\)/);
@@ -110,6 +104,39 @@ const parseFee = (feeStr: string, description = "") => {
 };
 
 const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
+  // --- theme ---
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    try {
+      const saved = localStorage.getItem("theme");
+      if (saved === "dark" || saved === "light") return saved;
+    } catch {}
+    return window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === "dark") root.classList.add("dark");
+    else root.classList.remove("dark");
+    try {
+      localStorage.setItem("theme", theme);
+    } catch {}
+  }, [theme]);
+
+  // keyboard shortcut: Ctrl/Cmd + J toggles theme
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "j") {
+        setTheme((t) => (t === "dark" ? "light" : "dark"));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // --- main state ---
   const [transactionType, setTransactionType] = useState("");
   const [currency, setCurrency] = useState("");
   const [amount, setAmount] = useState("");
@@ -182,17 +209,13 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
     if (!section) return [];
     const keys = Object.keys(section);
     const found: string[] = [];
-    const lowerKeys = keys.map((k) => k.toLowerCase());
     for (const p of patterns) {
       const lp = p.toLowerCase();
-      // exact match
       const exact = keys.find((k) => k.toLowerCase() === lp);
       if (exact && !found.includes(exact)) found.push(exact);
-      // includes match
-      keys.forEach((k, i) => {
+      keys.forEach((k) => {
         if (k.toLowerCase().includes(lp) && !found.includes(k)) found.push(k);
       });
-      // fuzzy: startsWith
       keys.forEach((k) => {
         if (k.toLowerCase().startsWith(lp) && !found.includes(k)) found.push(k);
       });
@@ -200,7 +223,7 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
     return found;
   };
 
-  // map user selection to service list(s) — made more resilient to key name variants
+  // map user selection to service list(s)
   const pickServices = (): ApiServiceRaw[] => {
     const section = getSection();
     if (!section) return [];
@@ -223,18 +246,14 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
     switch (transactionType) {
       case "deposit": {
         if (currency === "NGN") {
-          // prefer NG Virtual Bank Account
           const keys = findSectionKeys(section, [
             "NG Virtual Bank Account",
             "NG Virtual",
-            "NG Virtual Account",
           ]);
           pushFromKeys(out, keys, (s) => s.Service === "NGN Wallet Funding");
         } else {
-          // USD deposits: US Virtual Bank Account — include ACH and Wire if present
           const keys = findSectionKeys(section, [
             "US Virtual Bank Account",
-            "US Virtual",
             "Virtual Bank Account",
           ]);
           pushFromKeys(out, keys, (s) =>
@@ -249,19 +268,14 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
         break;
       }
       case "payout": {
-        const payoutKeyCandidates =
+        const payoutKeys =
           userType === "individual"
             ? ["Payout", "Payouts"]
-            : ["Business Payout", "Business Payouts", "Business Payout"];
-        const keys = findSectionKeys(section, payoutKeyCandidates);
+            : ["Business Payout", "Business Payouts"];
+        const keys = findSectionKeys(section, payoutKeys);
         if (currency === "NGN") {
-          pushFromKeys(
-            out,
-            keys,
-            (s) =>
-              s.Service.toLowerCase().includes("ngn payout") ||
-              s.Service.toLowerCase().includes("ngn payout - instant") ||
-              s.Service.toLowerCase().includes("ngn payout -")
+          pushFromKeys(out, keys, (s) =>
+            s.Service.toLowerCase().includes("ngn payout")
           );
         } else {
           pushFromKeys(out, keys, (s) =>
@@ -282,7 +296,6 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
       case "fx": {
         const keys = findSectionKeys(section, [
           "FX",
-          "Fx",
           "Currency Exchange",
           "Exchange",
         ]);
@@ -290,15 +303,11 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
         break;
       }
       case "card": {
-        // Robust lookup for Freedom Virtual Card and reasonable variants
         const keys = findSectionKeys(section, [
           "Freedom Virtual Card",
           "Virtual Card",
-          "Freedom Card",
           "Card",
-          "Virtual Cards",
         ]);
-        // push the whole section (we will choose transaction fee/others later)
         pushFromKeys(out, keys);
         break;
       }
@@ -306,7 +315,7 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
         break;
     }
 
-    // dedupe by Service name
+    // dedupe
     const unique: Record<string, ApiServiceRaw> = {};
     out.forEach((s) => {
       if (s && s.Service) unique[s.Service] = s;
@@ -314,8 +323,6 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
     return Object.values(unique);
   };
 
-  // helper: convert an amount that is in USD to target currency or vice versa
-  // rates maps currency -> value where 1 USD = rates[currency]
   const convertUsdTo = (usdValue: number, toCurrency: string) => {
     if (!rates) return NaN;
     const rate = rates[toCurrency];
@@ -323,7 +330,7 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
     return usdValue * rate;
   };
 
-  // Calculate handler (only runs when user clicks)
+  // calculation (runs only when user clicks)
   const calculate = async () => {
     setError(null);
     setCalculated(null);
@@ -388,7 +395,6 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
           continue;
         }
 
-        // compute fixed (if currency symbol present in fee) or percent on amt
         let fixedInSelected = 0;
         if (parsed.fixed && parsed.currency) {
           const baseCur =
@@ -420,11 +426,9 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
             : 0;
         }
 
-        // compute percent fee on amt (amt is in selected currency)
         const percentFee =
           parsed.percent > 0 ? (amt * parsed.percent) / 100 : 0;
 
-        // handle min/max if provided (they are absolute values in the fee string)
         let minVal = 0;
         let maxVal = 0;
         if (parsed.min && parsed.min > 0) {
@@ -475,18 +479,13 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
           }
         }
 
-        // total before min/max
         let computed = percentFee + fixedInSelected;
-        // apply min/max caps if provided
         if (minVal > 0 && computed < minVal) computed = minVal;
         if (maxVal > 0 && computed > maxVal) computed = maxVal;
-
-        // round
         computed = Math.round((computed + Number.EPSILON) * 100) / 100;
         anyComputed = true;
         lowest = Math.min(lowest, computed);
 
-        // build readable display
         const parts: string[] = [];
         if (parsed.percent > 0) parts.push(`${parsed.percent}%`);
         if (parsed.fixed > 0) {
@@ -521,15 +520,10 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
         anyComputed && lowest !== Infinity
           ? Math.round((lowest + Number.EPSILON) * 100) / 100
           : null;
-
       const note =
         "Displayed fees are estimates converted to your selected currency using live FX rates.";
 
-      setCalculated({
-        totalFee,
-        lines,
-        note,
-      });
+      setCalculated({ totalFee, lines, note });
     } catch (err: any) {
       console.error(err);
       setError("An error occurred while calculating. Try again.");
@@ -541,35 +535,53 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
   // UI loading
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl shadow-lg p-8 mb-12 border border-gray-100 m-6 md:m-12 flex justify-center items-center h-56">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-lg p-8 mb-12 border border-gray-100 dark:border-slate-800 m-6 md:m-12 flex justify-center items-center h-56">
         <FiLoader className="text-3xl animate-spin text-blue-500" />
       </div>
     );
   }
 
+  // --- render ---
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-8 mb-12 border border-gray-100 m-6 md:m-12">
-      <div className="text-center mb-6">
-        <h2
-          className="text-3xl font-bold text-gray-900 mb-1"
-          style={{ fontFamily: "Gilroy, sans-serif" }}
-        >
-          Estimate Your Fees
-        </h2>
-        <p
-          className="text-gray-600"
-          style={{ fontFamily: "Poppins, sans-serif" }}
-        >
-          Choose a transaction and click <strong>Calculate Fees</strong> to see
-          estimated costs (converted to selected currency).
-        </p>
+    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-lg p-6 md:p-8 mb-12 border border-gray-100 dark:border-slate-800 m-6 md:m-12">
+      {/* header + theme toggle */}
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h2
+            className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1"
+            style={{ fontFamily: "Gilroy, sans-serif" }}
+          >
+            Estimate Your Fees
+          </h2>
+          <p
+            className="text-sm text-slate-600 dark:text-slate-300"
+            style={{ fontFamily: "Poppins, sans-serif" }}
+          >
+            Choose a transaction and click <strong>Calculate Fees</strong> to
+            see estimated costs (converted to selected currency).
+          </p>
+        </div>
+
+        {/* <div className="flex items-center gap-3">
+          <button
+            aria-label="Toggle theme"
+            title="Toggle theme (Ctrl/Cmd + J)"
+            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-slate-700 dark:text-slate-100"
+          >
+            {theme === "dark" ? <FiSun /> : <FiMoon />}{" "}
+            <span className="text-sm">
+              {theme === "dark" ? "Light" : "Dark"}
+            </span>
+          </button>
+        </div> */}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {/* Transaction Type */}
         <div>
           <label
-            className="block text-sm font-semibold text-gray-700 mb-2"
+            className="block text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2"
             style={{ fontFamily: "Poppins, sans-serif" }}
           >
             Transaction Type
@@ -578,7 +590,7 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
             <select
               value={transactionType}
               onChange={(e) => setTransactionType(e.target.value)}
-              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow duration-200 shadow-sm appearance-none"
+              className="w-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow duration-200 shadow-sm appearance-none text-slate-800 dark:text-slate-100"
               aria-label="Transaction Type"
             >
               <option value="">Select type</option>
@@ -586,10 +598,10 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
               <option value="deposit">Deposit</option>
               <option value="transfer">Transfer</option>
               <option value="fx">Currency Exchange</option>
-              {/* <option value="card">Virtual Card</option> */}
+              <option value="card">Virtual Card</option>
             </select>
             <svg
-              className="w-5 h-5 absolute right-3 top-3 text-gray-400 pointer-events-none"
+              className="w-5 h-5 absolute right-3 top-3 text-gray-400 dark:text-slate-300 pointer-events-none"
               viewBox="0 0 20 20"
               fill="none"
               aria-hidden
@@ -608,7 +620,7 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
         {/* Currency */}
         <div>
           <label
-            className="block text-sm font-semibold text-gray-700 mb-2"
+            className="block text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2"
             style={{ fontFamily: "Poppins, sans-serif" }}
           >
             Currency
@@ -617,7 +629,7 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
             <select
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
-              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow duration-200 shadow-sm appearance-none"
+              className="w-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow duration-200 shadow-sm appearance-none text-slate-800 dark:text-slate-100"
               aria-label="Currency"
             >
               <option value="">Select currency</option>
@@ -627,7 +639,7 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
               <option value="GBP">GBP - British Pound</option>
             </select>
             <svg
-              className="w-5 h-5 absolute right-3 top-3 text-gray-400 pointer-events-none"
+              className="w-5 h-5 absolute right-3 top-3 text-gray-400 dark:text-slate-300 pointer-events-none"
               viewBox="0 0 20 20"
               fill="none"
               aria-hidden
@@ -646,7 +658,7 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
         {/* Amount */}
         <div>
           <label
-            className="block text-sm font-semibold text-gray-700 mb-2"
+            className="block text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2"
             style={{ fontFamily: "Poppins, sans-serif" }}
           >
             Amount
@@ -659,13 +671,13 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0.00"
               onKeyDown={onKeyDownNumber}
-              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow duration-200 shadow-sm appearance-none"
+              className="w-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow duration-200 shadow-sm appearance-none text-slate-800 dark:text-slate-100"
               aria-label="Amount"
               min="0"
               step="0.01"
             />
             <span
-              className="absolute left-2 top-3 text-gray-400 pointer-events-none pr-1"
+              className="absolute left-2 top-3 text-gray-400 dark:text-slate-300 pointer-events-none pr-1"
               aria-hidden
             >
               {currency === "NGN"
@@ -703,9 +715,9 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
           </span>
         </button>
 
-        <div className="min-w-[240px] bg-gray-50 rounded-xl p-4 border border-gray-100 shadow-sm">
+        <div className="min-w-[240px] bg-gray-50 dark:bg-slate-800 rounded-xl p-4 border border-gray-100 dark:border-slate-700 shadow-sm">
           {!calcLoading && !calculated && !error && (
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-slate-600 dark:text-slate-300">
               Click <strong>Calculate Fees</strong> to show estimates here.
             </div>
           )}
@@ -719,19 +731,19 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
           )}
           {!calcLoading && calculated && (
             <div
-              className="text-sm text-gray-800"
+              className="text-sm text-slate-800 dark:text-slate-100"
               style={{ fontFamily: "Poppins, sans-serif" }}
             >
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-slate-500 dark:text-slate-300">
                 Result (lowest possible)
               </div>
-              <div className="text-lg font-semibold text-gray-900">
+              <div className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                 {calculated.totalFee === null
                   ? "—"
                   : formatCurrency(calculated.totalFee, currency)}
               </div>
               {calculated.note && (
-                <div className="text-xs text-gray-400 mt-1">
+                <div className="text-xs text-slate-400 dark:text-slate-300 mt-1">
                   {calculated.note}
                 </div>
               )}
@@ -740,11 +752,11 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
         </div>
       </div>
 
-      {/* explanation area - only shown after calculate */}
+      {/* explanation area */}
       {calculated && (
         <div className="mt-6">
           <h3
-            className="text-lg font-semibold mb-3"
+            className="text-lg font-semibold mb-3 text-slate-900 dark:text-slate-100"
             style={{ fontFamily: "Gilroy, sans-serif" }}
           >
             Explanation
@@ -754,24 +766,26 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
             {calculated.lines.map((l, i) => (
               <div
                 key={i}
-                className="bg-white border border-gray-100 rounded-xl p-4 flex items-center justify-between gap-4"
+                className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl p-4 flex items-center justify-between gap-4"
               >
                 <div>
                   <div
-                    className="text-sm font-medium text-gray-700"
+                    className="text-sm font-medium text-slate-800 dark:text-slate-100"
                     style={{ fontFamily: "Poppins, sans-serif" }}
                   >
                     {l.title}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className="text-xs text-slate-500 dark:text-slate-300 mt-1">
                     {l.feeDisplay}
                   </div>
                 </div>
                 <div className="text-right">
                   {l.computed === null ? (
-                    <div className="text-sm text-gray-500">—</div>
+                    <div className="text-sm text-slate-500 dark:text-slate-300">
+                      —
+                    </div>
                   ) : (
-                    <div className="text-sm text-gray-900 font-semibold">
+                    <div className="text-sm text-slate-900 dark:text-slate-100 font-semibold">
                       {formatCurrency(l.computed, currency)}
                     </div>
                   )}
@@ -780,7 +794,7 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
             ))}
           </div>
 
-          <div className="mt-4 text-sm text-gray-500">
+          <div className="mt-4 text-sm text-slate-500 dark:text-slate-300">
             Note: these are estimates. For exact, per-transaction pricing use
             the live API or contact support.
           </div>
@@ -789,22 +803,26 @@ const FeeCalculator: React.FC<FeeCalculatorProps> = ({ userType }) => {
 
       {/* compact help / quick links */}
       <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg border border-gray-200 p-4 text-sm text-gray-600">
-          <strong className="block text-gray-800 mb-1">Data source</strong>
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-4 text-sm text-slate-600 dark:text-slate-300">
+          <strong className="block text-slate-800 dark:text-slate-100 mb-1">
+            Data source
+          </strong>
           Vitalswap Fee API
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4 text-sm text-gray-600">
-          <strong className="block text-gray-800 mb-1">
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-4 text-sm text-slate-600 dark:text-slate-300">
+          <strong className="block text-slate-800 dark:text-slate-100 mb-1">
             If missing amounts
           </strong>
           Services without amounts show “No fee info”. You can refresh the fee
           feed using the refresh button on the main fees page.
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4 text-sm text-gray-600">
-          <strong className="block text-gray-800 mb-1">Contact</strong>
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-4 text-sm text-slate-600 dark:text-slate-300">
+          <strong className="block text-slate-800 dark:text-slate-100 mb-1">
+            Contact
+          </strong>
           need precise quotes? Email{" "}
           <a
-            className="text-blue-600 underline"
+            className="text-blue-600 dark:text-blue-400 underline"
             href="mailto:contact@vitalswap.com"
           >
             contact@vitalswap.com
