@@ -216,14 +216,14 @@ export default function WhereFeesGo() {
             <div
               className="rounded-lg p-6 flex gap-4 items-start border shadow-sm"
               style={{
-                background: theme === "dark" ? "#0f1724" : "white",
+                // background: theme === "dark" ? "#0f1724" : "white",
                 borderColor: theme === "dark" ? "#0b1220" : "#e5e7eb",
               }}
             >
               <div
                 className="w-10 h-10 rounded-lg grid place-items-center text-xl"
                 style={{
-                  background: theme === "dark" ? "#0b1220" : "#f8fafc",
+                  // background: theme === "dark" ? "#0b1220" : "#f8fafc",
                   color: theme === "dark" ? "#06b6d4" : "#2563eb",
                 }}
               >
@@ -247,14 +247,14 @@ export default function WhereFeesGo() {
             <div
               className="rounded-lg p-6 flex gap-4 items-start border shadow-sm"
               style={{
-                background: theme === "dark" ? "#0f1724" : "white",
+                // background: theme === "dark" ? "#0f1724" : "white",
                 borderColor: theme === "dark" ? "#0b1220" : "#e5e7eb",
               }}
             >
               <div
                 className="w-10 h-10 rounded-lg grid place-items-center text-xl"
                 style={{
-                  background: theme === "dark" ? "#0b1220" : "#f8fafc",
+                  // background: theme === "dark" ? "#0b1220" : "#f8fafc",
                   color: theme === "dark" ? "#f59e0b" : "#f59e0b",
                 }}
               >
@@ -278,14 +278,14 @@ export default function WhereFeesGo() {
             <div
               className="rounded-lg p-6 flex gap-4 items-start border shadow-sm"
               style={{
-                background: theme === "dark" ? "#0f1724" : "white",
+                // background: theme === "dark" ? "#0f1724" : "white",
                 borderColor: theme === "dark" ? "#0b1220" : "#e5e7eb",
               }}
             >
               <div
                 className="w-10 h-10 rounded-lg grid place-items-center text-xl"
                 style={{
-                  background: theme === "dark" ? "#021226" : "#ecfeff",
+                  // background: theme === "dark" ? "#021226" : "#ecfeff",
                   color: theme === "dark" ? "#34d399" : "#059669",
                 }}
               >
@@ -308,14 +308,14 @@ export default function WhereFeesGo() {
             <div
               className="rounded-lg p-6 flex gap-4 items-start border shadow-sm"
               style={{
-                background: theme === "dark" ? "#0f1724" : "white",
+                // background: theme === "dark" ? "#0f1724" : "white",
                 borderColor: theme === "dark" ? "#0b1220" : "#e5e7eb",
               }}
             >
               <div
                 className="w-10 h-10 rounded-lg grid place-items-center text-xl"
                 style={{
-                  background: theme === "dark" ? "#0b1220" : "#fff1f2",
+                  // background: theme === "dark" ? "#0b1220" : "#fff1f2",
                   color: theme === "dark" ? "#fb7185" : "#db2777",
                 }}
               >
